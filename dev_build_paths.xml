@@ -1,0 +1,48 @@
+<project name="DEV_BUILD_PATHS">
+    <property file="folders_defs.properties"/>
+    <property file="skew_build.properties"/>
+    <import file="build_file_patterns.xml"/>
+
+    <!--lib definitions-->
+
+    <property name="project.lib.dir" value="${lib.dir}"/>
+
+    <!--<property name="project.lib1" value="flurry"/>-->
+
+    <!--build path definitions-->
+
+    <path id="dev_build.path">
+        <fileset dir="${src.dir}">
+            <patternset refid="src.files"/>
+        </fileset>
+        <fileset dir="${test.dir}" excludes="**/.gitignore"/>
+        <fileset dir="${res.dir}">
+            <patternset refid="res.files"/>
+        </fileset>
+    </path>
+
+    <path id="deploy_build.path">
+        <fileset dir="${src.dir}">
+            <patternset refid="src.files"/>
+        </fileset>
+        <fileset dir="${res.dir}">
+            <patternset refid="res.files"/>
+        </fileset>
+    </path>
+
+    <!--import path definition-->
+
+    <path id="simulator.import.path">
+        <!--nested paths-->
+        <path refid="device_dev.import.path"/>
+    </path>
+
+    <path id="device_dev.import.path">
+        <fileset dir="${lib.dir}/rimunit" includes="rimunit.jar"/>
+        <path refid="device_dev.import.path"/>
+    </path>
+
+    <path id="device_deploy.import.path">
+        <!--<fileset dir="${skew_os_lib.dir}" includes="flurry.jar"/>-->
+    </path>
+</project>

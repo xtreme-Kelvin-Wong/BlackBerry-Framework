@@ -1,0 +1,6 @@
+1. copy one of these files to the project root
+2. rename it to "local.properties"
+3. edit contents as appropriate to your environment
+
+jde.prefix should be everything in the JDE path up to the version number.
+Note the space at the end of the windows version. 

@@ -1,0 +1,13 @@
+build/*
+bin/*
+deploy/*
+deliverables/*
+.preprocessed/*
+.classpath
+/.project
+/.settings/org.eclipse.jdt.core.prefs
+/*.iml
+/*.ipr
+/*.iws
+/.idea/*
+/skew_build.properties

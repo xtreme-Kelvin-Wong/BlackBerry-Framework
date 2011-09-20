@@ -1,0 +1,180 @@
+<project name="Prod_ANT_Build" default="master-deploy">
+    <taskdef resource="bb-ant-defs.xml" classpath="build_tools/bb-ant-tools.jar"/>
+    <property environment="env"/>
+    <property file="local.properties"/>
+
+    <property file="application_description.properties"/>
+    <import file="build_file_patterns.xml"/>
+    <import file="deploy_build_paths.xml"/>
+
+    <!--cleanup task-->
+
+    <target name="clean" description="delete generated files">
+        <delete dir="${build.dir}"
+                includes="**/*.cod,**/*.cso,**/*.debug,**/*.jad,**/*.jar,**/*.rapc,**/*.csl,**/*.alx,**/*.signed,**/*.err, **/*.txt"/>
+        <delete dir="${deploy.dir}" includes="**/*.cod,**/*.jad,**/*.alx,**/*.zip,**/*.txt,**/*.jar"/>
+    </target>
+
+    <target name="_compile">
+        <property name="dest.dir" value="${build.dir}/${osVersion}"/>
+        <copy todir="${dest.dir}" overwrite="true" file="${app.icon.dir}/${app.icon.file}"/>
+        <rapc quiet="true"
+              nowarn="true"
+              output="${app.name}"
+              destdir="${dest.dir}"
+			  nopreverify="${no.preverify}"              
+              generatesourcelist="true"
+              defines="${jdp.os.defines};${jdp.env.defines}"
+              importref="${import.path.id}">
+            <jdp title="${Application.Title}"
+                 type="cldc"
+                 version="${build.version}"
+                 vendor="${Application.Vendor}"
+                 description="${Application.Description}"
+                 arguments="${gui.arg}"
+                 icon="${app.icon.file}">
+                <entry title="${Application.Title}"
+                       arguments="${startup.arg}"
+                       systemmodule="true"
+                       runonstartup="true"/>
+
+            </jdp>
+            <src>
+                <path refid="${build.path.id}"/>
+            </src>
+			<!-- <import location="${lib.dir}/FlurryAgent.jar"/> -->
+        </rapc>
+    </target>
+
+
+    <!--deploy build tasks-->
+    <target name="_deploy_build">
+        <property name="jdp.env.defines" value="PRODUCTION"/>
+        <property name="startup.arg" value="startup"/>
+        <property name="gui.arg" value="gui"/>
+
+        <property name="build.version" value="${app.version}.${build.number}"/>
+
+        <property name="build.path.id" value="deploy_build.path"/>
+        <property name="import.path.id" value="device_deploy.import.path"/>
+
+
+        <echo>deply-build: ${osVersion}</echo>
+        <delete dir="${build.dir}/${osVersion}"/>
+        <mkdir dir="${build.dir}/${osVersion}"/>
+
+        <delete dir="${src.dir}" includes="**/Thumbs.db"/>
+
+        <antcall target="_compile"/>
+    </target>
+
+    <!--signing-->
+
+    <target name="_private-sign">
+        <property name="jde.home" value="${jde.prefix}6.0.0"/>
+        <sigtool password="${env.RIM_CODE_SIGN_PWD}">
+            <fileset dir="${build.dir}" includes="**/*.cod"/>
+        </sigtool>
+    </target>
+
+
+    <!-- Versioning-->
+
+    <target name="update-version *** for production deploy ***" description="updates the deploy version number">
+        <delete dir="." includes="server_version.number"/>
+        <copy file="version.number" tofile="server_version.number" overwrite="true"/>
+    </target>
+
+    <!-- package OTA files and app world-->
+
+    <target name="_bundle">
+        <property name="dest.dir" value="${deploy.dir}/${osVersion}"/>
+        <!--update jad to ota dir-->
+        <jadtool input="${dest.dir}/${app.name}.jad" destdir="${dest.dir}/ota">
+            <fileset dir="${dest.dir}" includes="*.cod"/>
+            <override key="MIDlet-Name" value="${Application.Title}"/>
+        </jadtool>
+
+        <!--generate alx in desktop dir-->
+        <alx destdir="${dest.dir}" filename="${app.name}.alx">
+            <application id="${app.id}" name="${app.name}" version="${build.version}"
+                         vendor="${Application.Vendor}" copyright="${Application.Copyright}"
+                         description="${Application.Description}" greaterthanequal="${app.min_os_version}">
+                <codset>
+                    <fileset dir="${dest.dir}" includes="*.cod"/>
+                </codset>
+            </application>
+        </alx>
+        <move todir="${dest.dir}/desktop" overwrite="true" flatten="true">
+            <fileset dir="${dest.dir}" includes="*.cod,*.alx"/>
+        </move>
+
+        <delete file="${dest.dir}/ota/LogFile.txt"/>
+        <delete file="${dest.dir}/${app.name}.jad"/>
+    </target>
+
+
+    <!--Integration builds-->
+
+    <target name="build_package" depends="clean">
+        <property name="no.preverify" value="false"/>
+        <antcall target="_private-build_5.0.0"/>
+        <antcall target="_private-sign"/>
+    </target>
+
+    <target name="build_hudson" depends="clean">
+        <property name="no.preverify" value="true"/>
+        <antcall target="_private-build_5.0.0"/>
+    </target>
+
+    <!-- One hit wonder! -->
+
+    <target name="master-deploy" depends="build_package">
+        <copy todir="${deploy.dir}">
+            <fileset dir="${build.dir}" includes="**/*.jad,**/*.cod,**/*.alx"/>
+        </copy>
+
+        <antcall target="update-version *** for production deploy ***"/>
+        <antcall target="_5.0.0_bold_bundle"/>
+    </target>
+
+    <!--device load-->
+
+    <target name="load-device_from_build-deploy-dir" depends="_private-sign"
+            description="Load Blackberry device with previously deployed cod">
+        <input message="From which sub-folder?" addproperty="sub.dir" defaultvalue="5.0"
+               validargs="5.0,6.0"/>
+        <echo message="loading ${app.name}.cod under ${build.dir}/${sub.dir}"/>
+        <exec executable="${jde.prefix}5.0.0/bin/JavaLoader.exe" failonerror="true">
+            <arg value="-usb"/>
+            <arg value="load"/>
+            <arg file="${build.dir}/${sub.dir}/${app.name}.cod"/>
+        </exec>
+    </target>
+
+
+
+    <!--
+        Different OS builds
+        -->
+
+        <target name="_private-build_5.0.0" description="build with jde 5.0.0">
+            <property name="osVersion" value="5.0"/>
+            <property name="jde.home" value="${jde.prefix}5.0.0"/>
+            <property name="jdp.os.defines" value="VER_5.0.0"/>
+
+            <echo>Using JDE at ${jde.home}</echo>
+
+            <copy tofile="version.number" file="server_version.number" overwrite="true"/>
+            <buildnumber file="version.number"/>
+            <antcall target="_deploy_build"/>
+        </target>
+
+
+        <target name="_5.0.0_bold_bundle" description="build with jde 5.0.0">
+            <property name="osVersion" value="5.0"/>
+            <antcall target="_bundle"/>
+        </target>
+
+
+</project>

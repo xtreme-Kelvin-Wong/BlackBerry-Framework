@@ -1,0 +1,198 @@
+<project name="Dev_ANT_Build" default="build-dev and simulate">
+    <taskdef resource="bb-ant-defs.xml" classpath="build_tools/bb-ant-tools.jar"/>
+
+    <property environment="env"/>
+    <property file="local.properties"/>
+    <property file="application_description.properties"/>
+    <property file="folders_defs.properties"/>
+    <property file="skew_build.properties"/>
+    <import file="dev_build_paths.xml"/>
+
+    <!--common tasks-->
+
+    <target name="clean" depends="clean simulator" description="delete generated files">
+        <delete dir="${build.dir}" includes="*.cod,*.cso,*.debug,*.jad,*.jar,*.rapc,*.csl,*.alx,*.signed,*.err, *.txt"/>
+    </target>
+
+    <target name="_private_sign">
+        <sigtool password="${env.RIM_CODE_SIGN_PWD}">
+            <fileset dir="${build.dir}" includes="*.cod"/>
+        </sigtool>
+    </target>
+
+    <!-- dev tasks-->
+
+
+    <target name="_private-build-dev">
+        <copy todir="${build.dir}" overwrite="true" file="${app.icon.dir}/${app.icon.file}"/>
+        <rapc quiet="true"
+              output="${app.name}"
+              destdir="${build.dir}"
+              generatesourcelist="true"
+              defines="${jdp.os.defines};${jdp.env.defines}">
+            <jdp title="${Application.Title}"
+                 type="cldc"
+                 version="${build.version}"
+                 vendor="${Application.Vendor}"
+                 description="${Application.Description}"
+                 arguments="${gui.arg}"
+                 icon="${app.icon.file}">
+                <entry title="${Application.Title}"
+                       arguments="${startup.arg}"
+                       systemmodule="true"
+                       runonstartup="true"/>
+            </jdp>
+            <src>
+                <path refid="${build.path.id}"/>
+            </src>
+
+            <import location="${lib.dir}/rimunit/rimunit.jar"/>
+			<!-- <import location="${lib.dir}/FlurryAgent.jar"/> -->
+        </rapc>
+    </target>
+
+
+    <target name="_simulator-build" depends="clean, _check-build-environment" description="build app for development">
+        <property name="build.version" value="0.0.0"/>
+        <property name="jdp.env.defines" value="SIMULATOR;DEBUG;RUNTESTS;DEVELOPMENT"/>
+        <property name="startup.arg" value="startup devmode"/>
+        <property name="gui.arg" value="gui devmode"/>
+
+        <property name="build.path.id" value="dev_build.path"/>
+        <property name="import.path.id" value="simulator.import.path"/>
+
+        <antcall target="_private-build-dev"/>
+        <copy todir="${build.dir}">
+            <fileset dir="${project.lib.dir}" includes="**/*.cod"/>
+        </copy>
+        <copy todir="${build.dir}" file="${lib.dir}/rimunit/rimunit.cod"/>
+    </target>
+
+    <target name="_dev-build" depends="clean, _check-build-environment" description="build app for development">
+        <property name="jdp.env.defines" value="DEVELOPMENT;RUNTESTS;DEBUG"/>
+        <property name="build.version" value="0.0.0"/>
+        <property name="startup.arg" value="startup devmode"/>
+        <property name="gui.arg" value="gui devmode"/>
+        <property name="build.path.id" value="dev_build.path"/>
+        <property name="import.path.id" value="device_dev.import.path"/>
+
+        <antcall target="_private-build-dev"/>
+        <copy todir="${build.dir}" file="${lib.dir}/rimunit/rimunit.cod"/>
+    </target>
+
+    <target name="_deploy-build" depends="clean, _check-build-environment" description="build app for development">
+        <property name="jdp.env.defines" value="PRODUCTION"/>
+        <property name="build.version" value="0.0.0"/>
+        <property name="startup.arg" value="startup devmode"/>
+        <property name="gui.arg" value="gui devmode"/>
+        <property name="build.path.id" value="deploy_build.path"/>
+        <property name="import.path.id" value="device_deploy.import.path"/>
+
+        <antcall target="_private-build-dev"/>
+    </target>
+
+
+    <target name="_check-build-environment" description="ensures build environment is properly set">
+        <available file="skew_build.properties" property="not_first.time"/>
+        <fail unless="not_first.time" message="run one of the use-os_res commands. eg. use-480x320_bold"/>
+        <echo>jde.parent = ${jde.parent}</echo>
+        <echo>jde.home = ${jde.home}</echo>
+
+    </target>
+
+    <!-- Simulator/Debugging Tasks -->
+    <target name="kill simulator">
+        <exec osfamily="Windows" dir="${simulator.home}" executable="${simulator.home}\fledgecontroller.exe">
+            <arg value="/execute=kill"/>
+        </exec>
+    </target>
+
+    <target name="reset simulator">
+        <exec osfamily="Windows" dir="${simulator.home}" executable="${simulator.home}\fledgecontroller.exe">
+            <arg value="/execute=LoadCod(${build.dir}\${app.name}.cod)"/>
+            <arg value="/execute=reset"/>
+        </exec>
+    </target>
+
+    <target name="clean simulator" description="delete generated files">
+        <delete dir="${simulator.home}" includes="${app.name}.*, ${app.name}*.*"/>
+        <delete dir="${simulator.home}" includes="rimunit.*, rimunit*.*"/>
+    </target>
+
+    <target name="run simulator" depends="kill simulator" description="Run Blackberry simulator">
+        <copy todir="${simulator.home}">
+            <fileset dir="${build.dir}" includes="*.cod,*.cso,*.debug,*.jad,*.jar"/>
+            <fileset dir="${lib.dir}/rimunit" includes="*.cod,*.cso,*.debug,*.jad,*.jar"/>
+        </copy>
+        <exec osfamily="Windows" dir="${simulator.home}" executable="${simulator.home}\fledge.exe" spawn="true">
+            <arg value="/app-param=DisableRegistration"/>
+            <!--<arg value="/app-param=JvmDebugLocks"/>-->
+            <arg value="/app-param=JvmDisableBacklightTimeout"/>
+            <arg value="/app-param=NoTutorial"/>
+            <arg value="/data-port=0x4d44"/>
+            <arg value="/data-port=0x4d4e"/>
+            <arg value="/sdcard-inserted=false"/>
+            <!--<arg value="/keep-lcd-on=true"/>-->
+            <arg value="/pin=${simulator.pin}"/>
+            <!--<arg value="/imei=${simulator.imei}"/>-->
+            <!--<arg value="/app-param=launch=${app.name}"/>-->
+            <arg value="/session=${simulator.handheld}-ANT"/>
+            <arg value="/handheld=${simulator.handheld}"/>
+            <arg value="/camera-image=${simulator.camera-image}"/>
+            <arg value="/app=jvm.dll"/>
+        </exec>
+
+
+    </target>
+
+    <target name="build-dev and simulate" depends="_simulator-build, run simulator"
+            description="build app for development and run simulator"/>
+    <echo>jde.home</echo>
+
+    <!-- Blackberry Device Utilities -->
+    <target name="remove-app-on-device" description="Erase modules from Blackberry device">
+        <exec osfamily="Windows" executable="${jde.home}/bin/JavaLoader.exe">
+            <arg value="-usb"/>
+            <arg value="erase"/>
+            <arg value="-f"/>
+            <arg value="${app.name}"/>
+            <arg value="rimunit"/>
+        </exec>
+    </target>
+
+    <target name="load-device" description="Load Blackberry device" depends="_private_sign">
+        <exec osfamily="Windows" executable="${jde.home}/bin/JavaLoader.exe" failonerror="true">
+            <arg value="-usb"/>
+            <arg value="load"/>
+            <arg file="${lib.dir}/rimunit/rimunit.cod"/>
+            <arg file="${build.dir}/${app.name}.cod"/>
+        </exec>
+    </target>
+
+    <target name="build-dev and load" depends="clean, _dev-build, load-device" description="Deploy and load to device"/>
+
+
+    <!-- Different OS/Resolution builds-->
+
+    <!---->
+    <!--<target name="use-360x400_pearl3G" depends="clean" description="build app with jde 5.0.0">-->
+    <!--<copy file="5.0.0_360x400.properties" tofile="skew_build.properties" overwrite="true"/>-->
+    <!--</target>-->
+
+    <target name="use-320x240_curve" depends="clean" description="build app with jde 5.0.0 for Curve">
+        <copy file="5.0.0_320x240.properties" tofile="skew_build.properties" overwrite="true"/>
+    </target>
+
+    <target name="use-480x320_bold" depends="clean" description="build app with jde 5.0.0 for Bold 9000">
+        <copy file="5.0.0_480x320.properties" tofile="skew_build.properties" overwrite="true"/>
+    </target>
+
+    <target name="use-480x360_bold_javelin_tour" depends="clean" description="build app with jde 5.0.0 for 9700">
+        <copy file="5.0.0_480x360.properties" tofile="skew_build.properties" overwrite="true"/>
+    </target>
+
+    <target name="use-480x360_torch" depends="clean" description="build app with jde 6.0.0 for Torch">
+        <copy file="6.0.0_torch.properties" tofile="skew_build.properties" overwrite="true"/>
+    </target>
+
+</project>

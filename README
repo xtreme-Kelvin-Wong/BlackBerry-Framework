@@ -1,0 +1,2 @@
+1. When starting a new project, copy the replace.sh script into the parent directory of the framework
+2. Run ./replace.sh to replace most of the generic "changeme" text in the framework

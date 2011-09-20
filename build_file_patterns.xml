@@ -1,0 +1,7 @@
+<project name="BUILD_FILE_PATTERNS">
+
+    <patternset id="test.files" excludes="**/.gitignore"/>
+    <patternset id="src.files"   includes="**/*.java, **/*.png, **/*.bin, **/*.rrc, **/*.rrh"/>
+    <patternset id="res.files"   includes="**/*.png, **/*.bin, **/*.rrc, **/*.rrh"/>
+
+</project>
