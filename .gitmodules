@@ -1,3 +1,6 @@
 [submodule "src/com/xtremelabs/xtremeutil"]
 	path = src/com/xtremelabs/xtremeutil
 	url = git@github.com:xtreme-DX078/xtremeutil.git
+[submodule "xtremeutil"]
+	path = xtremeutil
+	url = git@github.com:xtreme-DX078/xtremeutil.git
